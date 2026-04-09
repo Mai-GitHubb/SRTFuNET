@@ -1,0 +1,370 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SRTfuNET Project .gitignore
+# Purpose: Exclude large data files and unnecessary files while keeping folder structure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── LARGE DATA DIRECTORIES ───────────────────────────────────────────────────
+# Dataset files (too large for GitHub)
+data/
+checkpoints/*.pth
+
+# Fallback models (too large for GitHub)
+fallback/*
+
+
+# ─── PYTHON CACHE & COMPILED FILES ────────────────────────────────────────────
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ─── IDE & EDITOR FILES ──────────────────────────────────────────────────────
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+*.elc
+auto-save-list
+.#*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+._*
+
+# Windows
+Thumbs.db
+thumbs.db
+*.lnk
+Desktop.ini
+
+# ─── TEMPORARY FILES ──────────────────────────────────────────────────────────
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.~*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ─── TENSORBOARD & LOGGING ───────────────────────────────────────────────────
+
+# TensorBoard
+runs/
+logs/
+*.event*
+.tensorboard/
+
+# Weights & Biases
+wandb/
+
+# ─── MISCELLANEOUS ────────────────────────────────────────────────────────────
+
+# Project-specific
+eval.txt~
+*.pth~
+*.ckpt
+test_videos/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+temp/
+tmp/
+
+# Keep folder structure but ignore large files
+# To preserve empty folders, create .gitkeep files
+
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Project-specific
+# Data and models
+data/Celeb-real/*.mp4
+data/Celeb-synthesis/*.mp4
+data/YouTube-real/*.mp4
+data/*.mp4
+!data/List_of_testing_videos.txt
+
+# Checkpoints (keep best models, ignore others)
+checkpoints/*
+fallback/*
+
+# Temporary output files
+outputs/
+logs/
+*.json
+*.csv
+
+# Video processing temp files
+*.tmp
+*.avi
+
+# TensorBoard logs
+runs/
+
+# Temporary files
+*.bak
+*.temp
+temp/
+
+# OS specific
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+
+# macOS
+.AppleDouble
+.LSOverride
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+[Dd]esktop.ini
+[Ss]ystem32/
+ehthumbs.db
+
+# Conda environments
+conda-env.yml
+environment.yml
+
+# Virtual environments
+venv*/
+ENV*/
+
+# Fallback directory (optional - uncomment if needed)
+# fallback/
+
+# Benchmark and profile results
+*.prof
+*.pstats
+profile_results/
+
+# Large test outputs
+test_outputs/
+test_results/
+
+# Model inference outputs
+inference_output/
+predictions/
+
+# Gradio temporary files
+gradio_cached_examples/
+
+# Pyright
+.pyright/
+
+# Any local configuration
+local_config.py
+config_local.json

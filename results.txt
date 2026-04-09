@@ -1,0 +1,55 @@
+PS D:\Deepfake\SRTfuNET> run-srt
+Using device: cuda  |  T=1.363  |  Threshold=0.46
+TTA passes   : 1
+Ensemble mode: yes
+
+Loading test dataset paths...
+Found 518 test videos (real: 178, fake: 340)
+
+Ensemble: loading 3 checkpoints...
+  checkpoints\topk_e07_auc0.9736.pth
+  Loaded topk_e07_auc0.9736.pth (weights_only=True)
+    Epoch 7 | Val AUC: 0.9736 | Val Real: 0.8873 | Val Fake: 0.9312 | Sep: 0.6825
+  checkpoints\topk_e10_auc0.9713.pth
+  Loaded topk_e10_auc0.9713.pth (weights_only=True)
+    Epoch 10 | Val AUC: 0.9713 | Val Real: 0.8521 | Val Fake: 0.9434 | Sep: 0.7338
+  checkpoints\topk_e13_auc0.9680.pth
+  Loaded topk_e13_auc0.9680.pth (weights_only=True)
+    Epoch 13 | Val AUC: 0.9680 | Val Real: 0.9225 | Val Fake: 0.8765 | Sep: 0.6698
+
+Running ensemble inference (TTA=1 per model)...
+[Ensemble x3, TTA x1]: 100%|████████████████████████████████████████████| 65/65 [14:41<00:00, 13.56s/it]
+
+═══════════════════ TEST SET PERFORMANCE ═══════════════════
+  Temperature   : 1.3630 | Threshold: 0.46
+  Total Videos  : 518
+------------------------------------------------------------
+  AUC           : 0.9705 ⭐
+  Accuracy      : 91.70%
+  Precision     : 0.9514 (Ability to avoid false alarms)
+  Recall        : 0.9206 (Ability to find all fakes)
+  F1-Score      : 0.9357
+------------------------------------------------------------
+  Confusion Matrix:
+                Predicted Real    Predicted Fake
+  Actual Real |      162              16          (TN / FP)
+  Actual Fake |      27               313         (FN / TP)
+------------------------------------------------------------
+  Real Accuracy : 0.9101
+  Fake Accuracy : 0.9206
+  Median Sep    : 0.5286 (Strong)
+════════════════════════════════════════════════════════════
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+        Real       0.86      0.91      0.88       178
+        Fake       0.95      0.92      0.94       340
+
+    accuracy                           0.92       518
+   macro avg       0.90      0.92      0.91       518
+weighted avg       0.92      0.92      0.92       518
+
+
+[Visuals] Metrics plots saved to: results/inference_metrics.png
+PS D:\Deepfake\SRTfuNET> 
