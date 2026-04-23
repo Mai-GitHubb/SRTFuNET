@@ -132,6 +132,13 @@ def extract_and_preprocess(video_path):
 # ── Analysis Logic ────────────────────────────────────────────────────────────
 def predict_video(video_filepath):
     try:
+        if video_filepath is None:
+            raise ValueError("❌ No video uploaded. Please upload a video file to analyze.")
+        
+        # Extract filename from file path
+        import os
+        filename = os.path.basename(video_filepath)
+        
         spatial, temporal, landmark, base_img_rgb = extract_and_preprocess(video_filepath)
         spatial, temporal, landmark = spatial.to(device), temporal.to(device), landmark.to(device)
         
@@ -155,19 +162,20 @@ def predict_video(video_filepath):
         heatmap_viz = show_cam_on_image(base_img_rgb.astype(np.float32)/255.0, grayscale_cam, use_rgb=True)
         landmark_marks = visualize_landmark_artifacts(base_img_rgb, landmark, ensemble_models[0], target_class)
             
-        return classification_text, fake_prob, heatmap_viz, landmark_marks
+        return classification_text, fake_prob, heatmap_viz, landmark_marks, filename
     except Exception as e:
-        return f"## Error: {str(e)}", 0, None, None
+        return f"## Error: {str(e)}", 0, None, None, "Error"
 
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
-with gr.Blocks(theme=gr.themes.Soft(), title="SRT-FuNET Forensic Suite") as demo:
-    gr.HTML("<h1 style='text-align: center;'>🕵️‍♂️ SRT-FuNET Deepfake Detector</h1>")
+with gr.Blocks(theme=gr.themes.Soft(), title="STG-FuNET Forensic Suite") as demo:
+    gr.HTML("<h1 style='text-align: center;'>🕵️‍♂️ STG-FuNET for High-Fidelity Deepfake Forensic Detection</h1>")
     
     with gr.Tabs():
         with gr.TabItem("Forensic Analysis"):
             with gr.Row():
                 with gr.Column():
-                    video_input = gr.Video(label="Input Evidence")
+                    video_input = gr.File(label="Input Evidence (Video)", file_types=["video"])
+                    video_display = gr.Textbox(label="Uploaded Video", interactive=False, value="No video uploaded")
                     analyze_btn = gr.Button("🔍 Run Multi-Stream Analysis", variant="primary")
                     gr.Markdown("### Ensemble Core Configuration")
                     with gr.Row():
@@ -179,7 +187,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="SRT-FuNET Forensic Suite") as demo
                     with gr.Row():
                         heatmap_out = gr.Image(label="Spatial Artifacts (Heatmap)")
                         landmark_out = gr.Image(label="Geometric Artifacts (Red Marks)")
-            analyze_btn.click(fn=predict_video, inputs=video_input, outputs=[result_md, prob_slider, heatmap_out, landmark_out])
+            analyze_btn.click(fn=predict_video, inputs=video_input, outputs=[result_md, prob_slider, heatmap_out, landmark_out, video_display])
 
         with gr.TabItem("Performance Benchmarks"):
             gr.Markdown("## 📊 Ensemble Integrity Report")
@@ -189,10 +197,67 @@ with gr.Blocks(theme=gr.themes.Soft(), title="SRT-FuNET Forensic Suite") as demo
                     gr.Image(value=metrics_img, label="Confusion Matrix & ROC Analytics")
                 else:
                     gr.Markdown("> ⚠️ **Benchmark Data Missing:** Run `inference.py` to generate `inference_metrics.png`.")
+            
+            gr.Markdown("### Core Performance Metrics")
             with gr.Row():
-                gr.Label(value="0.9705", label="Test Set AUC")
-                gr.Label(value="91.70%", label="Overall Accuracy")
-                gr.Label(value="0.9514", label="Precision Score")
-
+                gr.Number(value=0.9705, label="Test Set AUC", interactive=False)
+                gr.Number(value=0.9170, label="Overall Accuracy", interactive=False)
+                gr.Number(value=0.9514, label="Precision Score", interactive=False)
+                gr.Number(value=0.9206, label="Recall Score", interactive=False)
+                gr.Number(value=0.9357, label="F1-Score", interactive=False)
+            
+            gr.Markdown("### Per-Class Accuracy")
+            with gr.Row():
+                gr.Number(value=0.9101, label="Real Video Accuracy", interactive=False)
+                gr.Number(value=0.9206, label="Fake Video Accuracy", interactive=False)
+            
+            gr.Markdown("### Detailed Classification Report")
+            gr.HTML("""<div style='width: 100%;overflow-x: auto;'>
+            <table style='width: 100%; border-collapse: collapse; margin: 0 auto;'>
+            <tr>
+            <th style='border: 1px solid white; padding: 12px; text-align: left; color: white;'>Class</th>
+            <th style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>Precision</th>
+            <th style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>Recall</th>
+            <th style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>F1-Score</th>
+            <th style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>Support</th>
+            </tr>
+            <tr>
+            <td style='border: 1px solid white; padding: 12px; color: white;'><b>Real</b></td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.86</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.91</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.88</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>178</td>
+            </tr>
+            <tr>
+            <td style='border: 1px solid white; padding: 12px; color: white;'><b>Fake</b></td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.95</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.94</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>340</td>
+            </tr>
+            <tr>
+            <td style='border: 1px solid white; padding: 12px; color: white;'><b>Macro Avg</b></td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.90</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.91</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>518</td>
+            </tr>
+            <tr>
+            <td style='border: 1px solid white; padding: 12px; color: white;'><b>Weighted Avg</b></td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>518</td>
+            </tr>
+            <tr>
+            <td style='border: 1px solid white; padding: 12px; color: white;'><b>Overall Accuracy</b></td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>-</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>-</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>0.92</td>
+            <td style='border: 1px solid white; padding: 12px; text-align: center; color: white;'>518</td>
+            </tr>
+            </table>
+            </div>""")
+            
 if __name__ == "__main__":
     demo.launch(share=False)
