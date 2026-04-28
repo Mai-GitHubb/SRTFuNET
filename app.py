@@ -1,5 +1,6 @@
 import os
 import cv2
+import glob
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
@@ -13,6 +14,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings("ignore")
 
 from late_fusion_model import LateFusionDeepfakeDetector
+from dataset import LateFusionDataset  # ⬅️ IMPORT THE DATASET TO ENSURE 1:1 PARITY
 
 # ── Grad-CAM Imports ──────────────────────────────────────────────────────────
 from pytorch_grad_cam import GradCAM
@@ -20,24 +22,25 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 # ── Configuration (Calibrated Ensemble Parameters) ────────────────────────────
-CHECKPOINT_PATHS = [
-    "checkpoints/topk_e07_auc0.9736.pth",
-    "checkpoints/topk_e10_auc0.9713.pth",
-    "checkpoints/topk_e13_auc0.9680.pth"
-]
-TEMPERATURE = 1.3630  # Calibrated for ensemble logit smoothing
-THRESHOLD = 0.4600    # Optimal balanced threshold for 91.7% Accuracy
+TEMPERATURE = 1.3630  
+THRESHOLD = 0.4600    
 
 # ── Initialization ────────────────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def load_ensemble():
-    """Loads all three models for collective voting."""
+    """Loads all models using the same glob logic as inference.py."""
     models = []
     print(f"🚀 Initializing ensemble on {device}...")
-    for path in CHECKPOINT_PATHS:
+    
+    # ⬅️ Matches how inference.py dynamically finds ensemble checkpoints
+    topk_paths = sorted(glob.glob('checkpoints/topk_*.pth'))
+    if not topk_paths:
+        print("No top-k checkpoints found. Falling back to best_auc.pth and best_balanced.pth.")
+        topk_paths = [p for p in ['checkpoints/best_auc.pth', 'checkpoints/best_balanced.pth'] if os.path.exists(p)]
+        
+    for path in topk_paths:
         if not os.path.exists(path):
-            print(f"⚠️ Warning: {path} missing!")
             continue
             
         model = LateFusionDeepfakeDetector()
@@ -48,7 +51,12 @@ def load_ensemble():
         except Exception:
             ckpt = torch.load(path, map_location=device, weights_only=False)
 
-        model.load_state_dict(ckpt['model_state_dict'] if 'model_state_dict' in ckpt else ckpt)
+        # ⬅️ Match state_dict extraction logic exactly
+        if isinstance(ckpt, dict) and 'model_state_dict' in ckpt:
+            model.load_state_dict(ckpt['model_state_dict'])
+        else:
+            model.load_state_dict(ckpt)
+            
         model.to(device).eval()
         models.append(model)
         print(f" ✅ Loaded: {os.path.basename(path)}")
@@ -98,36 +106,40 @@ def visualize_landmark_artifacts(base_img, landmark_tensor, model, target_class)
 
 # ── Preprocessing ─────────────────────────────────────────────────────────────
 def extract_and_preprocess(video_path):
-    cap = cv2.VideoCapture(video_path)
-    frames, total_frames = [], int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    indices = np.linspace(int(total_frames * 0.1), int(total_frames * 0.9), 16, dtype=int)
-    for i in indices:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-        ret, frame = cap.read()
-        if ret: frames.append(frame)
-    cap.release()
+    """
+    Delegates tensor extraction to LateFusionDataset to guarantee identical 
+    preprocessing logic to inference scripts.
+    """
+    # 1. Exact dataset extraction for prediction
+    dataset = LateFusionDataset(
+        video_paths=[video_path],
+        labels=[0], # Dummy label
+        is_training=False,
+        num_frames=16
+    )
+    
+    batch = dataset[0]
+    spatial_tensor = batch['spatial'].unsqueeze(0)
+    temporal_tensor = batch['temporal'].unsqueeze(0)
+    landmark_tensor = batch['landmark'].unsqueeze(0)
 
-    if not frames: frames = [np.zeros((112, 112, 3), dtype=np.uint8)] * 16
-    while len(frames) < 16: frames.append(frames[-1])
-    mid_rgb = cv2.cvtColor(frames[len(frames)//2], cv2.COLOR_BGR2RGB)
+    # 2. Separate middle frame extraction purely for visual XAI heatmap background
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total_frames > 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames // 2)
+        ret, frame = cap.read()
+        if ret:
+            mid_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        else:
+            mid_rgb = np.zeros((299, 299, 3), dtype=np.uint8)
+    else:
+        mid_rgb = np.zeros((299, 299, 3), dtype=np.uint8)
+    cap.release()
     
     spatial_frame = cv2.resize(mid_rgb, (299, 299))
-    spatial_tensor = TF.normalize(torch.from_numpy(spatial_frame).float().permute(2,0,1)/255.0, [0.5,0.5,0.5], [0.5,0.5,0.5]).unsqueeze(0)
-
-    t_frames = [cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2RGB), (112, 112)) for f in frames]
-    temporal_tensor = torch.from_numpy(np.stack(t_frames)).float().permute(3,0,1,2) / 255.0
-    mean, std = torch.tensor([0.432, 0.394, 0.376]).view(3,1,1,1), torch.tensor([0.228, 0.221, 0.216]).view(3,1,1,1)
-    temporal_tensor = ((temporal_tensor - mean) / std).unsqueeze(0)
-
-    with mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1) as face_mesh:
-        res = face_mesh.process(mid_rgb)
-        if res.multi_face_landmarks:
-            lms = [val for lm in res.multi_face_landmarks[0].landmark for val in (lm.x, lm.y, lm.z)]
-            lm_arr = np.append(np.array(lms, dtype=np.float32), 1.0)
-        else:
-            lm_arr = np.append(np.full(468*3, 0.5, dtype=np.float32), 0.0)
     
-    return spatial_tensor, temporal_tensor, torch.from_numpy(lm_arr).float().unsqueeze(0), spatial_frame
+    return spatial_tensor, temporal_tensor, landmark_tensor, spatial_frame
 
 # ── Analysis Logic ────────────────────────────────────────────────────────────
 def predict_video(video_filepath, n_tta):
@@ -135,8 +147,6 @@ def predict_video(video_filepath, n_tta):
         if video_filepath is None:
             raise ValueError("❌ No video uploaded. Please upload a video file to analyze.")
 
-        # Extract filename from file path
-        import os
         filename = os.path.basename(video_filepath)
         
         spatial, temporal, landmark, base_img_rgb = extract_and_preprocess(video_filepath)
@@ -155,7 +165,7 @@ def predict_video(video_filepath, n_tta):
                     logits = m(s_input, temporal, landmark)
                     probs = torch.softmax(logits / TEMPERATURE, dim=1)[0][1].item()
                     model_prob += probs
-                total_fake_prob += (model_prob / n_tta)
+                total_fake_prob += (model_prob / int(n_tta))
         fake_prob = total_fake_prob / len(ensemble_models)
         
         res_label = "🚨 FAKE" if fake_prob >= THRESHOLD else "✅ REAL"
@@ -184,7 +194,8 @@ with gr.Blocks(theme=gr.themes.Soft(), title="STG-FuNET Forensic Suite") as demo
                 with gr.Column():
                     video_input = gr.File(label="Input Evidence (Video)", file_types=["video"])
                     video_display = gr.Textbox(label="Uploaded Video", interactive=False, value="No video uploaded")
-                    tta_slider = gr.Slider(minimum=1, maximum=5, step=1, value=3, label="TTA Passes (Test-Time Augmentation)")
+                    # ⬅️ TTA default updated to 1 to match your evaluation scripts
+                    tta_slider = gr.Slider(minimum=1, maximum=5, step=1, value=1, label="TTA Passes (Test-Time Augmentation)")
                     analyze_btn = gr.Button("🔍 Run Multi-Stream Analysis", variant="primary")
                     gr.Markdown("### Ensemble Core Configuration")
                     with gr.Row():
