@@ -130,11 +130,11 @@ def extract_and_preprocess(video_path):
     return spatial_tensor, temporal_tensor, torch.from_numpy(lm_arr).float().unsqueeze(0), spatial_frame
 
 # ── Analysis Logic ────────────────────────────────────────────────────────────
-def predict_video(video_filepath):
+def predict_video(video_filepath, n_tta):
     try:
         if video_filepath is None:
             raise ValueError("❌ No video uploaded. Please upload a video file to analyze.")
-        
+
         # Extract filename from file path
         import os
         filename = os.path.basename(video_filepath)
@@ -146,8 +146,16 @@ def predict_video(video_filepath):
         total_fake_prob = 0
         with torch.no_grad():
             for m in ensemble_models:
-                logits = m(spatial, temporal, landmark)
-                total_fake_prob += torch.softmax(logits / TEMPERATURE, dim=1)[0][1].item()
+                model_prob = 0
+                for i in range(int(n_tta)):
+                    s_input = spatial
+                    if i == 1: # Horizontal flip for second TTA pass
+                        s_input = torch.flip(spatial, dims=[-1])
+                    
+                    logits = m(s_input, temporal, landmark)
+                    probs = torch.softmax(logits / TEMPERATURE, dim=1)[0][1].item()
+                    model_prob += probs
+                total_fake_prob += (model_prob / n_tta)
         fake_prob = total_fake_prob / len(ensemble_models)
         
         res_label = "🚨 FAKE" if fake_prob >= THRESHOLD else "✅ REAL"
@@ -176,6 +184,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="STG-FuNET Forensic Suite") as demo
                 with gr.Column():
                     video_input = gr.File(label="Input Evidence (Video)", file_types=["video"])
                     video_display = gr.Textbox(label="Uploaded Video", interactive=False, value="No video uploaded")
+                    tta_slider = gr.Slider(minimum=1, maximum=5, step=1, value=3, label="TTA Passes (Test-Time Augmentation)")
                     analyze_btn = gr.Button("🔍 Run Multi-Stream Analysis", variant="primary")
                     gr.Markdown("### Ensemble Core Configuration")
                     with gr.Row():
@@ -187,7 +196,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="STG-FuNET Forensic Suite") as demo
                     with gr.Row():
                         heatmap_out = gr.Image(label="Spatial Artifacts (Heatmap)")
                         landmark_out = gr.Image(label="Geometric Artifacts (Red Marks)")
-            analyze_btn.click(fn=predict_video, inputs=video_input, outputs=[result_md, prob_slider, heatmap_out, landmark_out, video_display])
+            analyze_btn.click(fn=predict_video, inputs=[video_input, tta_slider], outputs=[result_md, prob_slider, heatmap_out, landmark_out, video_display])
 
         with gr.TabItem("Performance Benchmarks"):
             gr.Markdown("## 📊 Ensemble Integrity Report")

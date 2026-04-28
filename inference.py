@@ -294,7 +294,7 @@ def main():
 
     BATCH_SIZE      = 8
     TEST_LIST_PATH  = r"D:\Deepfake\SRTfuNET\data\List_of_testing_videos.txt"
-    DATA_ROOT       = r"D:\Deepfake\SRTfuNET\data"
+    DATA_ROOT       = r"D:\Deepfake\SRTfuNET\data\Test_videos"
     NUM_FRAMES      = 16
 
     # --- USING THE ARGUMENTS ---
@@ -333,10 +333,13 @@ def main():
         video_paths=test_videos, labels=test_labels,
         is_training=False, num_frames=NUM_FRAMES,
     )
+    # Disable num_workers when TTA or ensemble is enabled to avoid memory issues
+    # (ensemble with 3+ models is memory-intensive)
+    num_workers = 0 if (n_tta > 1 or args.ensemble) else 4
     test_loader = DataLoader(
         test_dataset, batch_size=BATCH_SIZE,
-        shuffle=False, num_workers=4, pin_memory=True,
-        worker_init_fn=_worker_init,
+        shuffle=False, num_workers=num_workers, pin_memory=True,
+        worker_init_fn=_worker_init if num_workers > 0 else None,
     )
 
     # ── Load model(s) ─────────────────────────────────────────────────────────
